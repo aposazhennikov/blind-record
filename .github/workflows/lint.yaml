@@ -1,0 +1,94 @@
+name: Lint & Static Analysis
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  style-cpplint-clangformat:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # clang-format check (без автофикс)
+      - name: Check clang-format
+        run: |
+          shopt -s globstar
+          files=$(ls **/*.{c,cc,cpp,cxx,h,hpp} 2>/dev/null || true)
+          if [ -n "$files" ]; then
+            diffcount=0
+            for f in $files; do
+              diff -u "$f" <(clang-format "$f") || diffcount=$((diffcount+1))
+            done
+            if [ $diffcount -ne 0 ]; then
+              echo "::error ::clang-format found style issues. Run clang-format locally."
+              exit 1
+            fi
+          fi
+
+      # cpplint
+      - name: Install cpplint
+        run: pip install cpplint==1.6.1
+      - name: Run cpplint
+        run: |
+          cpplint --recursive --quiet --linelength=100 main components include src || true
+
+  cppcheck:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cppcheck
+        run: apt-get update && apt-get install -y cppcheck
+      - name: Run cppcheck
+        run: |
+          cppcheck \
+            --enable=all \
+            --inconclusive \
+            --inline-suppr \
+            --suppressions-list=cppcheck.suppress \
+            --std=c11 \
+            -I include -I components \
+            --template=gcc \
+            main components src 2> cppcheck.txt || true
+
+          echo "---- cppcheck report ----"
+          tail -n +1 cppcheck.txt
+          # Фейлим PR, если нашли серьёзные проблемы:
+          grep -E "error:" cppcheck.txt && exit 1 || true
+
+  clang-tidy:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Генерим compile_commands.json через CMake (ESP-IDF)
+      - name: Prepare build dir
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON || true
+          # Если проект на ESP-IDF, можно так:
+          # idf.py reconfigure || true
+      - name: Symlink compile_commands.json
+        run: |
+          if [ -f build/compile_commands.json ]; then
+            ln -sf build/compile_commands.json .
+          fi
+
+      - name: Run clang-tidy
+        run: |
+          if [ -f compile_commands.json ]; then
+            files=$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp')
+            if [ -n "$files" ]; then
+              clang-tidy -p . $files || true
+            fi
+          else
+            echo "No compile_commands.json — skipping clang-tidy (need configure)."
+          fi
