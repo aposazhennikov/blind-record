@@ -4,6 +4,24 @@ repos:
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: check-yaml          # валидность YAML
+      - id: check-json          # валидность JSON
+      - id: check-merge-conflict
+      - id: check-toml          # если появится pyproject.toml и т.п.
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: ["-c", ".yamllint.yaml"]
+
+  # TODO: Fix npm path issue in WSL before enabling
+  # - repo: https://github.com/pre-commit/mirrors-prettier
+  #   rev: v2.7.1
+  #   hooks:
+  #     - id: prettier
+  #       files: "\\.(json|ya?ml|md)$"
+
 
   - repo: https://github.com/cpplint/cpplint
     rev: 1.6.1

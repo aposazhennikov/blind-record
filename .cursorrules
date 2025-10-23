@@ -1,0 +1,15 @@
+# Project coding rules (ESP32 / C/C++)
+
+- You are C/C++ Programmist with 20+ years experience
+- Use `.clang-format` (LLVM-based), 2 spaces, no tabs, 100 cols.
+- One declaration per line for pointers and references. Prefer `int* p;` over `int *p`.
+- Do not return references/views to temporaries. Avoid dangling `string_view`/`span`.
+- Prefer RAII for resources (GPIO, handles, heap buffers).
+- Error handling: return `esp_err_t` (ESP-IDF) or status enums; no silent failures.
+- No dynamic allocation in hot paths/ISRs; use static buffers or pools.
+- All new files must include headers with include guards or `#pragma once`.
+- Public headers in `include/`, private headers local to component.
+- `constexpr`/`static` for constants; no magic numbers (except low-level regs with comments).
+- Tests: prefer small, deterministic units; no hardware side effects by default.
+- Don't watch .env files
+- Don't write unnesesary .md files, write it only if i ask about it

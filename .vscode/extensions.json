@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "llvm-vs-code-extensions.vscode-clangd",
+    "ms-vscode.cpptools",
+    "esbenp.prettier-vscode",
+    "redhat.vscode-yaml",
+    "timonwong.shellcheck",
+    "editorconfig.editorconfig"
+  ]
+}
