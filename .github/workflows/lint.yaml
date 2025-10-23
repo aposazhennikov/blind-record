@@ -3,7 +3,7 @@ name: Lint & Static Analysis
 on:
   pull_request:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   style-cpplint-clangformat:
@@ -13,8 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # clang-format check (без автофикс)
+      # clang-format check (without autofix).
       - name: Check clang-format
+        shell: bash
         run: |
           shopt -s globstar
           files=$(ls **/*.{c,cc,cpp,cxx,h,hpp} 2>/dev/null || true)
@@ -58,7 +59,7 @@ jobs:
 
           echo "---- cppcheck report ----"
           tail -n +1 cppcheck.txt
-          # Фейлим PR, если нашли серьёзные проблемы:
+          # Fail PR if serious issues found.
           grep -E "error:" cppcheck.txt && exit 1 || true
 
   clang-tidy:
@@ -68,13 +69,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Генерим compile_commands.json через CMake (ESP-IDF)
+      # Generate compile_commands.json via CMake (ESP-IDF).
       - name: Prepare build dir
         run: |
           mkdir -p build
           cd build
           cmake .. -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON || true
-          # Если проект на ESP-IDF, можно так:
+          # For ESP-IDF projects, can use:
           # idf.py reconfigure || true
       - name: Symlink compile_commands.json
         run: |
@@ -90,5 +91,5 @@ jobs:
               clang-tidy -p . $files || true
             fi
           else
-            echo "No compile_commands.json — skipping clang-tidy (need configure)."
+            echo "No compile_commands.json - skipping clang-tidy (need configure)."
           fi
