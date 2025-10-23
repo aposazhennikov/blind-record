@@ -31,8 +31,10 @@ jobs:
           fi
 
       # cpplint
-      - name: Install cpplint
-        run: pip3 install cpplint==1.6.1
+      - name: Install Python and cpplint
+        run: |
+          apt-get update && apt-get install -y python3-pip
+          pip3 install cpplint==1.6.1
       - name: Run cpplint
         run: |
           cpplint --recursive --quiet --linelength=100 main components include src || true
