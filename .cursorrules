@@ -13,3 +13,4 @@
 - Tests: prefer small, deterministic units; no hardware side effects by default.
 - Don't watch .env files
 - Don't write unnesesary .md files, write it only if i ask about it
+- Use Context7 MCP for most relevant documentation
