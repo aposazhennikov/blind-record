@@ -1,4 +1,5 @@
 # blind-record
+
 Accessible voice recorder (dictaphone) for blind/low-vision users, built on ESP32.
 
 ## Project Structure
@@ -8,21 +9,29 @@ This project follows the ESP-IDF (Espressif IoT Development Framework) standard 
 ### 📁 Directory Organization
 
 #### `components/`
+
 Contains **reusable components** of the project:
+
 - Each component is a separate folder with its own `CMakeLists.txt`
 - Modular libraries (drivers, utilities, middleware)
 - Code that can be reused across different projects
 - **Example**: `components/my_driver/`, `components/wifi_manager/`
 
+#
+
 #### `include/`
+
 Contains **public header files (.h)**:
+
 - APIs exported to other modules
 - Interfaces for other components
 - Public data structures and constants
 - Must have include guards or `#pragma once`
 
 #### `main/`
+
 **Main application component**:
+
 - Entry point (`app_main()`)
 - Core business logic of the application
 - Has its own `CMakeLists.txt`
@@ -30,7 +39,9 @@ Contains **public header files (.h)**:
 - **Required directory** for ESP-IDF projects
 
 #### `src/`
+
 Not standard for ESP-IDF, but can be used for:
+
 - Alternative code organization (non-ESP-IDF standard)
 - Subfolder within `main/` or `components/`
 - Generally, code is placed in `main/` or `components/` instead
