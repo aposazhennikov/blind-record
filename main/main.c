@@ -6,6 +6,7 @@
 #include "modes.h"
 #include "battery.h"
 #include "audio.h"
+#include "settings.h"
 
 static const char* TAG = "main";
 
@@ -77,12 +78,35 @@ static void main_menu_loop(void) {
   vTaskDelay(pdMS_TO_TICKS(100));
 }
 
+static bool settings_mode_initialized = false;
+
+static void settings_loop_mode(void) {
+  if (!settings_mode_initialized) {
+    // Settings mode should be initialized by button handler before
+    // entering MODE_SETTINGS. If we reach here without initialization,
+    // default to short press mode
+    ESP_LOGW(TAG, "Settings mode entered without initialization, using default");
+    settings_init_mode(SETTINGS_MODE_SHORT_PRESS);
+    settings_mode_initialized = true;
+  }
+
+  if (settings_is_active()) {
+    settings_loop();
+  } else {
+    // Exit settings mode, return to main menu
+    settings_mode_initialized = false;
+    set_current_mode(MODE_MAIN_MENU);
+    main_menu_init();
+  }
+}
+
 void app_main(void) {
   ESP_LOGI(TAG, "Blind Record - Voice Recorder Starting");
 
   // Initialize components
   ESP_ERROR_CHECK(battery_init());
   ESP_ERROR_CHECK(audio_init());
+  ESP_ERROR_CHECK(settings_init());
 
   // Initialize main menu
   main_menu_init();
@@ -108,9 +132,7 @@ void app_main(void) {
         vTaskDelay(pdMS_TO_TICKS(1000));
         break;
       case MODE_SETTINGS:
-        // TODO: Implement settings mode
-        ESP_LOGI(TAG, "Settings mode - TODO");
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        settings_loop_mode();
         break;
       case MODE_SHUTDOWN:
         ESP_LOGI(TAG, "Shutting down...");
