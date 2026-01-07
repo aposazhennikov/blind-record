@@ -1,0 +1,72 @@
+#include <Arduino.h>
+#include <driver/i2s.h>
+
+#define I2S_DOUT 21
+#define I2S_BCLK 26
+#define I2S_LRC 25
+
+void i2sInit() {
+  i2s_config_t cfg = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+    .sample_rate = 44100,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,  // стерео поток!
+    .communication_format = I2S_COMM_FORMAT_I2S,
+    .intr_alloc_flags = 0,
+    .dma_buf_count = 4,
+    .dma_buf_len = 256,
+    .use_apll = false,
+    .tx_desc_auto_clear = true,
+    .fixed_mclk = 0
+  };
+
+  i2s_pin_config_t pins = {
+    .bck_io_num = I2S_BCLK,
+    .ws_io_num = I2S_LRC,
+    .data_out_num = I2S_DOUT,
+    .data_in_num = I2S_PIN_NO_CHANGE
+  };
+
+  i2s_driver_install(I2S_NUM_0, &cfg, 0, NULL);
+  i2s_set_pin(I2S_NUM_0, &pins);
+  i2s_zero_dma_buffer(I2S_NUM_0);
+}
+
+void playTone() {
+  const int sampleRate = 44100;
+  const float freq = 440.0;
+  const float amplitude = 8000;  // громкость (макс 32767)
+  const int duration_ms = 3000;
+
+  const int samples = 256;
+  int16_t buffer[samples * 2];  // стерео L+R
+
+  unsigned long stopTime = millis() + duration_ms;
+
+  while (millis() < stopTime) {
+    for (int i = 0; i < samples; i++) {
+      float s = amplitude * sinf(2.0f * PI * freq * (i / (float)sampleRate));
+      int16_t sample = (int16_t)s;
+
+      buffer[2 * i] = sample;      // Left
+      buffer[2 * i + 1] = sample;  // Right
+    }
+
+    size_t written;
+    i2s_write(I2S_NUM_0, buffer, sizeof(buffer), &written, portMAX_DELAY);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Init I2S...");
+
+  i2sInit();
+
+  Serial.println("Beep 1200 Hz...");
+  playTone();
+
+  Serial.println("Done.");
+}
+
+void loop() {}
