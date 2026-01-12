@@ -11,5 +11,4 @@ typedef enum {
 } recorder_mode_t;
 
 recorder_mode_t get_current_mode(void);
-void set_current_mode(recorder_mode_t mode);
-
+void            set_current_mode(recorder_mode_t mode);
