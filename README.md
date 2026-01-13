@@ -2,6 +2,37 @@
 
 Accessible voice recorder (dictaphone) for blind/low-vision users, built on ESP32.
 
+## Getting Started
+
+### Prerequisites
+
+- ESP-IDF v5.x
+- Python 3.8+
+- clang-format (for code formatting)
+
+### Setup for Development
+
+After cloning the repository, run:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This installs git hooks that automatically format C/C++ code before each commit.
+
+### Build
+
+```bash
+idf.py build
+```
+
+### Flash
+
+```bash
+idf.py -p /dev/ttyUSB0 flash monitor
+```
+
 ## Project Structure
 
 This project follows the ESP-IDF (Espressif IoT Development Framework) standard structure:
