@@ -1,10 +1,16 @@
 {
-  "recommendations": [
-    "llvm-vs-code-extensions.vscode-clangd",
-    "ms-vscode.cpptools",
-    "esbenp.prettier-vscode",
-    "redhat.vscode-yaml",
-    "timonwong.shellcheck",
-    "editorconfig.editorconfig"
-  ]
+    // See http://go.microsoft.com/fwlink/?LinkId=827846
+    // for the documentation about the extensions.json format
+    "recommendations": [
+        "editorconfig.editorconfig",
+        "esbenp.prettier-vscode",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cpptools",
+        "platformio.platformio-ide",
+        "redhat.vscode-yaml",
+        "timonwong.shellcheck"
+    ],
+    "unwantedRecommendations": [
+        "ms-vscode.cpptools-extension-pack"
+    ]
 }
