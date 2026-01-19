@@ -37,6 +37,7 @@ static String htmlPage()
 
   // Current values from g_settings.
   int volPercent = (int)(g_settings.volume * 100.0f + 0.5f);
+  int gainDb     = (int)(g_settings.softGain + 0.5f);
   int sr         = g_settings.sampleRate;
   int inbuf      = g_settings.inBufBytes;
   int dmac       = g_settings.dmaBufCount;
@@ -117,7 +118,7 @@ static String htmlPage()
     <div class="subtitle">WAV/MP3 Player + Web Panel | IP: <b>)HTML";
   page += ip;
   page += R"HTML(</b></div>
-    
+
     <div class="tabs">
       <div class="tab active" onclick="showPanel('player')">🎵 Плеер</div>
       <div class="tab" onclick="showPanel('files')">📂 Файлы</div>
@@ -138,18 +139,40 @@ static String htmlPage()
       </div>
       <div class="info" id="np-info">-</div>
     </div>
-    
+
     <div class="card">
-      <div class="box">
-        <div class="box-title">🔊 Громкость</div>
-        <input id="vol" type="range" min="0" max="100" value=")HTML";
+      <div class="row">
+        <div class="col">
+          <div class="box">
+            <div class="box-title">🔊 Громкость (0-200%)</div>
+            <input id="vol" type="range" min="0" max="200" value=")HTML";
   page += String(volPercent);
   page += R"HTML(" oninput="volVal.innerText=this.value+'%'"/>
-        <div style="text-align:center;font-size:18px;font-weight:bold"><span id="volVal">)HTML";
+            <div style="text-align:center;font-size:18px;font-weight:bold"><span id="volVal">)HTML";
   page += String(volPercent);
   page += R"HTML(%</span></div>
+            <div class="hint">100% = оригинал, >100% = усиление (может искажать)</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="box">
+            <div class="box-title">📢 Доп. усиление (0-12 dB)</div>
+            <input id="gain" type="range" min="0" max="12" value=")HTML";
+  page += String(gainDb);
+  page += R"HTML(" oninput="gainVal.innerText='+'+this.value+' dB'"/>
+            <div style="text-align:center;font-size:18px;font-weight:bold"><span id="gainVal">+)HTML";
+  page += String(gainDb);
+  page += R"HTML( dB</span></div>
+            <div class="hint">+6 dB = x2 громкость, +12 dB = x4 громкость</div>
+          </div>
+        </div>
       </div>
-      
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="soft-limiter" checked>
+        <label for="soft-limiter">🛡️ Soft Limiter (защита от искажений при высокой громкости)</label>
+      </div>
+
       <div class="btns">
         <button class="btn-success" onclick="playAudio()">▶️ Воспроизвести</button>
         <button class="btn-danger" onclick="stopAudio()">⏹ Стоп</button>
@@ -157,7 +180,7 @@ static String htmlPage()
         <button onclick="applyVolume()">💾 Применить громкость</button>
       </div>
     </div>
-    
+
     <div class="status-bar" id="status">Загрузка...</div>
   </div>
 
@@ -171,14 +194,14 @@ static String htmlPage()
         <input type="text" id="current-path" value="/" style="flex:1" readonly>
       </div>
       <div class="file-list" id="file-list"></div>
-      
+
       <div class="btns" style="margin-top:14px">
         <button class="btn-success" onclick="playSelected()">▶️ Воспроизвести</button>
         <button class="btn-danger" onclick="deleteSelected()">🗑 Удалить</button>
         <button onclick="renameSelected()">✏️ Переименовать</button>
       </div>
     </div>
-    
+
     <div class="card">
       <h2>📤 Загрузка файлов</h2>
       <div class="upload-zone" id="upload-zone" onclick="document.getElementById('upload-input').click()">
@@ -203,7 +226,7 @@ static String htmlPage()
         <input type="checkbox" id="eq-enabled" onchange="toggleEq()">
         <label for="eq-enabled">Включить эквалайзер</label>
       </div>
-      
+
       <div class="eq-row" id="eq-sliders">
         <div class="eq-slider">
           <div class="val" id="eq-val-0">0</div>
@@ -231,12 +254,12 @@ static String htmlPage()
           <div class="freq">12 kHz<br>Brilliance</div>
         </div>
       </div>
-      
+
       <div class="btns">
         <button class="btn-primary" onclick="applyEq()">💾 Применить EQ</button>
         <button onclick="resetEq()">🔄 Сбросить</button>
       </div>
-      
+
       <div class="hint" style="margin-top:12px">
         <b>Подсказка:</b> Диапазон каждой полосы от -12 до +12 дБ.<br>
         • <b>Sub-bass (60 Hz)</b> — глубокий бас, ощущается телом<br>
@@ -252,7 +275,7 @@ static String htmlPage()
   <div id="panel-settings" class="panel">
     <div class="card">
       <h2>⚙️ Настройки аудио</h2>
-      
+
       <div class="row">
         <div class="col">
           <div class="box">
@@ -273,7 +296,7 @@ static String htmlPage()
           </div>
         </div>
       </div>
-      
+
       <div class="row">
         <div class="col">
           <div class="box">
@@ -304,7 +327,7 @@ static String htmlPage()
           </div>
         </div>
       </div>
-      
+
       <div class="row">
         <div class="col">
           <div class="box">
@@ -330,7 +353,7 @@ static String htmlPage()
           </div>
         </div>
       </div>
-      
+
       <div class="btns">
         <button class="btn-primary" onclick="applySettings()">💾 Сохранить настройки</button>
         <button onclick="restartAudio()">🔄 Перезапустить аудио</button>
@@ -361,13 +384,14 @@ static String htmlPage()
 let currentPath = '/';
 let selectedFile = null;
 let logAutoRefresh = true;
+let slidersInitialized = false;  // Only update sliders on first load.
 
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   event.target.classList.add('active');
-  
+
   if (name === 'files') refreshFiles();
   if (name === 'logs') refreshLogs();
 }
@@ -376,22 +400,38 @@ async function refreshStatus() {
   try {
     const r = await fetch('/status');
     const j = await r.json();
-    
+
     let html = '';
     html += `<span style="margin-right:16px">📡 WiFi: <b class="${j.wifi==='OK'?'status-ok':'status-fail'}">${j.wifi}</b></span>`;
     html += `<span style="margin-right:16px">🎵 Аудио: <b class="${j.audio==='PLAYING'?'status-ok':'status-warn'}">${j.audio}</b></span>`;
     html += `<span style="margin-right:16px">💾 Heap: <b>${j.heap}</b></span>`;
     html += `<span>📄 Settings: <b class="${j.settings==='OK'?'status-ok':'status-fail'}">${j.settings}</b></span>`;
     document.getElementById('status').innerHTML = html;
-    
-    // Update checkboxes.
-    document.getElementById('auto-tune').checked = j.autoTune === 'ON';
-    document.getElementById('resampling').checked = j.resampling === 'ON';
-    document.getElementById('eq-enabled').checked = j.eqEnabled === 'ON';
-    
-    // Update timezone selector.
-    if (j.timezoneOffset !== undefined) {
-      document.getElementById('timezone').value = j.timezoneOffset;
+
+    // Only update sliders/checkboxes on first load to avoid overwriting user input.
+    if (!slidersInitialized) {
+      // Update checkboxes.
+      document.getElementById('auto-tune').checked = j.autoTune === 'ON';
+      document.getElementById('resampling').checked = j.resampling === 'ON';
+      document.getElementById('eq-enabled').checked = j.eqEnabled === 'ON';
+      document.getElementById('soft-limiter').checked = j.softLimiter === 'ON';
+
+      // Update volume and gain sliders.
+      if (j.volume !== undefined) {
+        document.getElementById('vol').value = j.volume;
+        document.getElementById('volVal').innerText = j.volume + '%';
+      }
+      if (j.softGain !== undefined) {
+        document.getElementById('gain').value = j.softGain;
+        document.getElementById('gainVal').innerText = '+' + j.softGain + ' dB';
+      }
+
+      // Update timezone selector.
+      if (j.timezoneOffset !== undefined) {
+        document.getElementById('timezone').value = j.timezoneOffset;
+      }
+
+      slidersInitialized = true;
     }
   } catch(e) {
     document.getElementById('status').innerText = '❌ Ошибка: ' + e;
@@ -402,25 +442,29 @@ async function refreshProgress() {
   try {
     const r = await fetch('/progress');
     const j = await r.json();
-    
+
     document.getElementById('np-file').innerText = j.fileName || 'Нет файла';
     document.getElementById('np-time').innerText = j.playedTime || '00:00';
     document.getElementById('np-total').innerText = j.totalTime || '00:00';
     document.getElementById('np-percent').innerText = j.percent + '%';
     document.getElementById('np-progress').style.width = j.percent + '%';
-    document.getElementById('np-info').innerText = 
+    document.getElementById('np-info').innerText =
       `${j.sampleRate} Hz | ${j.channels} ch | ${j.bitsPerSample} bit`;
   } catch(e) {}
 }
 
 async function applyVolume() {
   const vol = document.getElementById('vol').value;
-  await fetch(`/set?vol=${vol}`);
-  refreshStatus();
+  const gain = document.getElementById('gain').value;
+  const limiter = document.getElementById('soft-limiter').checked ? 1 : 0;
+  await fetch(`/set?vol=${vol}&gain=${gain}&limiter=${limiter}`);
+  // Don't reset slidersInitialized - keep user values.
 }
 
 async function applySettings() {
   const vol = document.getElementById('vol').value;
+  const gain = document.getElementById('gain').value;
+  const limiter = document.getElementById('soft-limiter').checked ? 1 : 0;
   const sr = document.getElementById('sr').value;
   const inbuf = document.getElementById('inbuf').value;
   const dmac = document.getElementById('dmac').value;
@@ -428,10 +472,10 @@ async function applySettings() {
   const autoTune = document.getElementById('auto-tune').checked ? 1 : 0;
   const resampling = document.getElementById('resampling').checked ? 1 : 0;
   const tz = document.getElementById('timezone').value;
-  
-  await fetch(`/set?vol=${vol}&sr=${sr}&inbuf=${inbuf}&dmac=${dmac}&dmal=${dmal}&autoTune=${autoTune}&resampling=${resampling}&tz=${tz}`);
+
+  await fetch(`/set?vol=${vol}&gain=${gain}&limiter=${limiter}&sr=${sr}&inbuf=${inbuf}&dmac=${dmac}&dmal=${dmal}&autoTune=${autoTune}&resampling=${resampling}&tz=${tz}`);
   alert('Настройки сохранены!');
-  refreshStatus();
+  // Don't reset slidersInitialized - keep user values.
 }
 
 async function playAudio() {
@@ -454,9 +498,9 @@ async function refreshFiles() {
   try {
     const r = await fetch('/files?path=' + encodeURIComponent(currentPath));
     const files = await r.json();
-    
+
     document.getElementById('current-path').value = currentPath;
-    
+
     let html = '';
     files.forEach(f => {
       const lowerName = f.name.toLowerCase();
@@ -521,13 +565,13 @@ async function playSelected() {
     return;
   }
   await fetch('/play?file=' + encodeURIComponent(selectedFile.path));
-  
+
   // Switch to player tab and refresh.
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-player').classList.add('active');
   document.querySelector('.tab').classList.add('active');
-  
+
   // Update progress immediately.
   setTimeout(refreshProgress, 500);
 }
@@ -538,7 +582,7 @@ async function deleteSelected() {
     return;
   }
   if (!confirm('Удалить ' + selectedFile.name + '?')) return;
-  
+
   const r = await fetch('/delete?path=' + encodeURIComponent(selectedFile.path));
   const txt = await r.text();
   alert(txt);
@@ -552,7 +596,7 @@ async function renameSelected() {
   }
   const newName = prompt('Новое имя:', selectedFile.name);
   if (!newName || newName === selectedFile.name) return;
-  
+
   const newPath = currentPath + (currentPath.endsWith('/') ? '' : '/') + newName;
   const r = await fetch('/rename?old=' + encodeURIComponent(selectedFile.path) + '&new=' + encodeURIComponent(newPath));
   const txt = await r.text();
@@ -572,11 +616,11 @@ uploadZone.addEventListener('drop', e => {
 
 async function uploadFile(file) {
   if (!file) return;
-  
+
   const statusEl = document.getElementById('upload-status');
   const totalSize = file.size;
   const startTime = Date.now();
-  
+
   statusEl.innerHTML = `
     <div style="margin:10px 0">
       <div>📤 <b>${file.name}</b> (${formatSize(totalSize)})</div>
@@ -584,27 +628,27 @@ async function uploadFile(file) {
       <div id="upload-info">Начало загрузки...</div>
     </div>
   `;
-  
+
   const formData = new FormData();
   formData.append('file', file);
-  
+
   try {
     const xhr = new XMLHttpRequest();
-    
+
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
         const elapsed = (Date.now() - startTime) / 1000;
         const speed = e.loaded / 1024 / elapsed;
         const remaining = (e.total - e.loaded) / 1024 / speed;
-        
+
         document.getElementById('upload-progress').style.width = percent + '%';
-        document.getElementById('upload-info').innerHTML = 
+        document.getElementById('upload-info').innerHTML =
           `${formatSize(e.loaded)} / ${formatSize(e.total)} (${percent}%) | ` +
           `${speed.toFixed(1)} KB/s | Осталось: ${Math.ceil(remaining)} сек`;
       }
     });
-    
+
     xhr.onload = () => {
       if (xhr.status === 200) {
         const j = JSON.parse(xhr.responseText);
@@ -614,11 +658,11 @@ async function uploadFile(file) {
         statusEl.innerHTML = `<div style="color:#eb5757">❌ Ошибка: ${xhr.status}</div>`;
       }
     };
-    
+
     xhr.onerror = () => {
       statusEl.innerHTML = `<div style="color:#eb5757">❌ Ошибка сети</div>`;
     };
-    
+
     xhr.open('POST', '/upload');
     xhr.send(formData);
   } catch(e) {
@@ -644,7 +688,7 @@ async function applyEq() {
   const b2 = document.getElementById('eq-2').value;
   const b3 = document.getElementById('eq-3').value;
   const b4 = document.getElementById('eq-4').value;
-  
+
   await fetch(`/eq?enabled=${enabled}&b0=${b0}&b1=${b1}&b2=${b2}&b3=${b3}&b4=${b4}`);
   alert('EQ сохранён!');
 }
@@ -661,7 +705,7 @@ async function refreshLogs() {
   try {
     const r = await fetch('/logs');
     const logs = await r.json();
-    
+
     const box = document.getElementById('log-box');
     box.innerHTML = logs.map(l => `<div class="log-line">${l}</div>`).join('');
     box.scrollTop = box.scrollHeight;
@@ -677,7 +721,7 @@ async function copyLogs() {
   const box = document.getElementById('log-box');
   const lines = Array.from(box.querySelectorAll('.log-line')).map(el => el.innerText);
   const text = lines.join('\n');
-  
+
   try {
     await navigator.clipboard.writeText(text);
     const status = document.getElementById('copy-status');
@@ -693,7 +737,7 @@ async function copyLogs() {
     textarea.select();
     document.execCommand('copy');
     document.body.removeChild(textarea);
-    
+
     const status = document.getElementById('copy-status');
     status.style.display = 'block';
     setTimeout(() => { status.style.display = 'none'; }, 2000);
@@ -704,7 +748,7 @@ async function copyLogs() {
 setInterval(() => {
   refreshStatus();
   refreshProgress();
-  if (document.getElementById('auto-refresh').checked && 
+  if (document.getElementById('auto-refresh').checked &&
       document.getElementById('panel-logs').classList.contains('active')) {
     refreshLogs();
   }
@@ -730,6 +774,9 @@ static void handleStatus()
   bool googleOk     = checkGoogleTCP();
   bool audioRunning = audioIsRunning();
 
+  int volPercent = (int)(g_settings.volume * 100.0f + 0.5f);
+  int gainDb     = (int)(g_settings.softGain + 0.5f);
+
   String json = "{";
   json += "\"wifi\":\"" + String(isWiFiOk() ? "OK" : "DOWN") + "\",";
   json += "\"ip\":\"" + ipToString() + "\",";
@@ -740,6 +787,9 @@ static void handleStatus()
   json += "\"autoTune\":\"" + String(g_settings.autoTuneEnabled ? "ON" : "OFF") + "\",";
   json += "\"resampling\":\"" + String(g_settings.resamplingEnabled ? "ON" : "OFF") + "\",";
   json += "\"eqEnabled\":\"" + String(g_settings.eqEnabled ? "ON" : "OFF") + "\",";
+  json += "\"softLimiter\":\"" + String(g_settings.softLimiterEnabled ? "ON" : "OFF") + "\",";
+  json += "\"volume\":" + String(volPercent) + ",";
+  json += "\"softGain\":" + String(gainDb) + ",";
   json += "\"timezoneOffset\":" + String(g_settings.timezoneOffset);
   json += "}";
 
@@ -757,11 +807,29 @@ static void handleSet()
     int v = server.arg("vol").toInt();
     if (v < 0)
       v = 0;
-    if (v > 100)
-      v = 100;
+    if (v > 200)
+      v = 200;
     g_settings.volume = (float)v / 100.0f;
     WebLog.print("[WEB] volume=");
     WebLog.println(g_settings.volume, 3);
+  }
+
+  if (server.hasArg("gain")) {
+    int g = server.arg("gain").toInt();
+    if (g < 0)
+      g = 0;
+    if (g > 12)
+      g = 12;
+    g_settings.softGain = (float)g;
+    WebLog.print("[WEB] softGain=");
+    WebLog.print(g_settings.softGain);
+    WebLog.println(" dB");
+  }
+
+  if (server.hasArg("limiter")) {
+    g_settings.softLimiterEnabled = server.arg("limiter").toInt() == 1;
+    WebLog.print("[WEB] softLimiterEnabled=");
+    WebLog.println(g_settings.softLimiterEnabled);
   }
 
   if (server.hasArg("sr")) {

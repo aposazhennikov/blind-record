@@ -13,6 +13,7 @@
 
 #include <SD.h>
 #include <driver/i2s.h>
+#include <math.h>
 
 // Audio format type.
 enum AudioFormat { FORMAT_UNKNOWN, FORMAT_WAV, FORMAT_MP3 };
@@ -24,6 +25,26 @@ static volatile AudioFormat g_currentFormat      = FORMAT_UNKNOWN;
 
 // I2S write timeout in ticks (100ms). Allows checking stop flag periodically.
 static const TickType_t I2S_WRITE_TIMEOUT = pdMS_TO_TICKS(100);
+
+// Convert dB to linear gain multiplier.
+static inline float dbToLinear(float db)
+{
+  return powf(10.0f, db / 20.0f);
+}
+
+// Soft limiter (tanh-based) to prevent harsh clipping.
+// Applies smooth compression when signal exceeds threshold.
+static inline float softLimit(float sample, float threshold = 28000.0f)
+{
+  if (sample > threshold) {
+    float excess = (sample - threshold) / (32767.0f - threshold);
+    return threshold + (32767.0f - threshold) * tanhf(excess);
+  } else if (sample < -threshold) {
+    float excess = (-sample - threshold) / (32767.0f - threshold);
+    return -(threshold + (32767.0f - threshold) * tanhf(excess));
+  }
+  return sample;
+}
 
 // Detect audio format by file extension.
 static AudioFormat detectFormat(const String& path)
@@ -212,7 +233,11 @@ static void wavPlaybackTask(void* param)
     progressUpdate(bytesPlayed);
 
     size_t framesRead = bytesRead / bytesPerFrame;
-    float  vol        = g_settings.volume;
+    // Calculate total gain: volume (0-2.0) * softGain (dB to linear).
+    float vol        = g_settings.volume;
+    float gainLinear = dbToLinear(g_settings.softGain);
+    float totalGain  = vol * gainLinear;
+    bool  useLimiter = g_settings.softLimiterEnabled;
 
     for (size_t i = 0; i < framesRead; i++) {
       int16_t L = 0;
@@ -226,20 +251,27 @@ static void wavPlaybackTask(void* param)
         R = inBuf[i * 2 + 1];
       }
 
-      int32_t sL = (int32_t)((float)L * vol);
-      int32_t sR = (int32_t)((float)R * vol);
+      float fL = (float)L * totalGain;
+      float fR = (float)R * totalGain;
 
-      if (sL > 32767)
-        sL = 32767;
-      if (sL < -32768)
-        sL = -32768;
-      if (sR > 32767)
-        sR = 32767;
-      if (sR < -32768)
-        sR = -32768;
+      // Apply soft limiter if enabled to prevent harsh clipping.
+      if (useLimiter) {
+        fL = softLimit(fL);
+        fR = softLimit(fR);
+      }
 
-      outBuf[2 * i]     = (int16_t)sL;
-      outBuf[2 * i + 1] = (int16_t)sR;
+      // Hard clip as final safety.
+      if (fL > 32767.0f)
+        fL = 32767.0f;
+      if (fL < -32768.0f)
+        fL = -32768.0f;
+      if (fR > 32767.0f)
+        fR = 32767.0f;
+      if (fR < -32768.0f)
+        fR = -32768.0f;
+
+      outBuf[2 * i]     = (int16_t)fL;
+      outBuf[2 * i + 1] = (int16_t)fR;
     }
 
     if (g_eqSettings.enabled) {

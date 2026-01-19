@@ -30,7 +30,10 @@ static float clampFloat(float v, float lo, float hi)
 
 static void sanitize(AudioSettings& s)
 {
-  s.volume      = clampFloat(s.volume, 0.0f, 1.0f);
+  // Volume now allows up to 200% (2.0) for boost.
+  s.volume = clampFloat(s.volume, 0.0f, 2.0f);
+  // Software gain in dB (0 to +12 dB).
+  s.softGain    = clampFloat(s.softGain, 0.0f, 12.0f);
   s.sampleRate  = clampInt(s.sampleRate, 8000, 48000);
   s.inBufBytes  = clampInt(s.inBufBytes, 512, 8192);
   s.dmaBufCount = clampInt(s.dmaBufCount, 4, 16);
@@ -49,27 +52,29 @@ static void sanitize(AudioSettings& s)
 
 void settingsSetDefaults(AudioSettings& s)
 {
-  s.volume     = 0.30f;
+  s.volume     = 1.0f; // 100% by default (can go up to 200%).
+  s.softGain   = 0.0f; // No additional gain by default.
   s.sampleRate = 44100;
   // Larger buffers for smoother playback:
   // - inBufBytes: 8KB for SD read chunks (was 4KB)
   // - dmaBufCount: 12 DMA buffers (was 8) for more headroom
   // - dmaBufLen: 512 samples per buffer (was 256)
   // Total DMA buffer: 12 * 512 * 4 = 24KB (~136ms at 44100Hz stereo)
-  s.inBufBytes        = 8192;
-  s.dmaBufCount       = 12;
-  s.dmaBufLen         = 512;
-  s.currentFile       = "/test.wav";
-  s.eqEnabled         = false;
-  s.eq.band60Hz       = 0.0f;
-  s.eq.band250Hz      = 0.0f;
-  s.eq.band1kHz       = 0.0f;
-  s.eq.band4kHz       = 0.0f;
-  s.eq.band12kHz      = 0.0f;
-  s.autoTuneEnabled   = true;
-  s.resamplingEnabled = true;
-  s.timezone          = "Europe/Moscow";
-  s.timezoneOffset    = 10800; // UTC+3 (Moscow).
+  s.inBufBytes         = 8192;
+  s.dmaBufCount        = 12;
+  s.dmaBufLen          = 512;
+  s.currentFile        = "/test.wav";
+  s.eqEnabled          = false;
+  s.eq.band60Hz        = 0.0f;
+  s.eq.band250Hz       = 0.0f;
+  s.eq.band1kHz        = 0.0f;
+  s.eq.band4kHz        = 0.0f;
+  s.eq.band12kHz       = 0.0f;
+  s.autoTuneEnabled    = true;
+  s.resamplingEnabled  = true;
+  s.softLimiterEnabled = true; // Enable limiter by default to prevent clipping.
+  s.timezone           = "Europe/Moscow";
+  s.timezoneOffset     = 10800; // UTC+3 (Moscow).
 }
 
 bool settingsSaveToSD()
@@ -77,17 +82,19 @@ bool settingsSaveToSD()
   sanitize(g_settings);
 
   JsonDocument doc;
-  doc["volume"]            = g_settings.volume;
-  doc["sampleRate"]        = g_settings.sampleRate;
-  doc["inBufBytes"]        = g_settings.inBufBytes;
-  doc["dmaBufCount"]       = g_settings.dmaBufCount;
-  doc["dmaBufLen"]         = g_settings.dmaBufLen;
-  doc["currentFile"]       = g_settings.currentFile;
-  doc["eqEnabled"]         = g_settings.eqEnabled;
-  doc["autoTuneEnabled"]   = g_settings.autoTuneEnabled;
-  doc["resamplingEnabled"] = g_settings.resamplingEnabled;
-  doc["timezone"]          = g_settings.timezone;
-  doc["timezoneOffset"]    = g_settings.timezoneOffset;
+  doc["volume"]             = g_settings.volume;
+  doc["softGain"]           = g_settings.softGain;
+  doc["sampleRate"]         = g_settings.sampleRate;
+  doc["inBufBytes"]         = g_settings.inBufBytes;
+  doc["dmaBufCount"]        = g_settings.dmaBufCount;
+  doc["dmaBufLen"]          = g_settings.dmaBufLen;
+  doc["currentFile"]        = g_settings.currentFile;
+  doc["eqEnabled"]          = g_settings.eqEnabled;
+  doc["autoTuneEnabled"]    = g_settings.autoTuneEnabled;
+  doc["resamplingEnabled"]  = g_settings.resamplingEnabled;
+  doc["softLimiterEnabled"] = g_settings.softLimiterEnabled;
+  doc["timezone"]           = g_settings.timezone;
+  doc["timezoneOffset"]     = g_settings.timezoneOffset;
 
   JsonObject eq   = doc["eq"].to<JsonObject>();
   eq["band60Hz"]  = g_settings.eq.band60Hz;
@@ -153,17 +160,19 @@ bool settingsLoadFromSD()
     return settingsSaveToSD();
   }
 
-  g_settings.volume            = doc["volume"] | 0.30f;
-  g_settings.sampleRate        = doc["sampleRate"] | 44100;
-  g_settings.inBufBytes        = doc["inBufBytes"] | 8192;
-  g_settings.dmaBufCount       = doc["dmaBufCount"] | 12;
-  g_settings.dmaBufLen         = doc["dmaBufLen"] | 512;
-  g_settings.currentFile       = doc["currentFile"] | "/test.wav";
-  g_settings.eqEnabled         = doc["eqEnabled"] | false;
-  g_settings.autoTuneEnabled   = doc["autoTuneEnabled"] | true;
-  g_settings.resamplingEnabled = doc["resamplingEnabled"] | true;
-  g_settings.timezone          = doc["timezone"] | "Europe/Moscow";
-  g_settings.timezoneOffset    = doc["timezoneOffset"] | 10800;
+  g_settings.volume             = doc["volume"] | 1.0f;
+  g_settings.softGain           = doc["softGain"] | 0.0f;
+  g_settings.sampleRate         = doc["sampleRate"] | 44100;
+  g_settings.inBufBytes         = doc["inBufBytes"] | 8192;
+  g_settings.dmaBufCount        = doc["dmaBufCount"] | 12;
+  g_settings.dmaBufLen          = doc["dmaBufLen"] | 512;
+  g_settings.currentFile        = doc["currentFile"] | "/test.wav";
+  g_settings.eqEnabled          = doc["eqEnabled"] | false;
+  g_settings.autoTuneEnabled    = doc["autoTuneEnabled"] | true;
+  g_settings.resamplingEnabled  = doc["resamplingEnabled"] | true;
+  g_settings.softLimiterEnabled = doc["softLimiterEnabled"] | true;
+  g_settings.timezone           = doc["timezone"] | "Europe/Moscow";
+  g_settings.timezoneOffset     = doc["timezoneOffset"] | 10800;
 
   JsonObject eq = doc["eq"];
   if (!eq.isNull()) {

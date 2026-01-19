@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "Blind-record",
+			"path": "../../../Documents/PlatformIO/Projects/Blind-record"
+		}
+	],
+  "settings": {
+    "clangd.arguments": [
+      "--compile-commands-dir=${workspaceFolder}",
+      "--header-insertion=never",
+      "--all-scopes-completion",
+      "--background-index"
+    ],
+    "clangd.checkUpdates": false
+  }
+}
